@@ -1,6 +1,5 @@
 // --- Firebase SDK Imports and Initialization for Realtime Database ---
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
-// Realtime Database specific imports
 import { getDatabase, ref, push, query, orderByChild, limitToLast, get, serverTimestamp as rtdbServerTimestamp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js";
 
 const firebaseConfig = {
@@ -15,25 +14,26 @@ const firebaseConfig = {
 };
 
 let firebaseAppInstance;
-let db; // Realtime Database instance
+let db;
 
 try {
   firebaseAppInstance = initializeApp(firebaseConfig);
-  db = getDatabase(firebaseAppInstance); // Get Realtime Database instance
+  db = getDatabase(firebaseAppInstance);
   console.log("Firebase Realtime Database initialized successfully. Project ID used:", firebaseConfig.projectId);
 } catch (e) {
   console.error("Firebase Realtime Database initialization failed:", e);
   alert("Firebase 初始化失敗，排行榜功能將無法使用。\n請檢查 firebaseConfig 及 databaseURL 是否正確。\n錯誤：" + e.message);
 }
 
-// --- Constants and Global Variables --- (與之前相同)
+// --- Constants and Global Variables ---
 const GRID_SIZE = 20;
-// ... (其餘常量和全域變數與上一版本相同，此處省略以保持簡潔) ...
 let CANVAS_WIDTH, CANVAS_HEIGHT;
 const WORLD_WIDTH = 100;
 const WORLD_HEIGHT = 100;
 const TICK_RATE = 30;
 const BASE_MOVE_TICKS = 5;
+
+// ... (其他常量和全域變數與上一版本相同) ...
 const PLAYER_SNAKE_COLOR = '#0D47A1';
 const PLAYER_SNAKE_BORDER = '#002171';
 const AI_COLORS = [
@@ -65,6 +65,8 @@ const mapZones = [
     { x: 15, y: 45, width: 15, height: 10, type: 'no_turn', backgroundColor: 'rgba(255, 182, 193, 0.4)', backgroundImageURL: 'https://img.pikbest.com/wp/202343/glacier-textured-backdrop-with-a-stunning-blue-theme_9941583.jpg!w700wp', backgroundImageObject: null },
     { x: 70, y: 45, width: 15, height: 10, type: 'no_turn', backgroundColor: 'rgba(255, 182, 193, 0.4)', backgroundImageURL: 'https://img.pikbest.com/wp/202343/glacier-textured-backdrop-with-a-stunning-blue-theme_9941583.jpg!w700wpD', backgroundImageObject: null },
 ];
+
+
 let playerSnake;
 let aiSnakes = [];
 let foods = [];
@@ -72,46 +74,51 @@ let changingDirection = false;
 let gameRunning = false;
 let gameInterval = null;
 let viewport = { x: 0, y: 0 };
+
+let gameStartTime = 0; // <--- 新增：追蹤遊戲開始時間
+let lastPlayedSeconds = 0; // <--- 新增：儲存最後一局的遊玩秒數
+
+// DOM Elements
 let canvas, ctx, scoreDisplay, gameOverMessage, instructionsDiv, startButton;
 let leaderboardContainer, leaderboardTitle, playerNameEntry, finalScoreMessage,
     playerNameInput, submitScoreButton, leaderboardList, returnToStartButton;
 
 
-// --- Snake Class --- (與上一版本相同，此處省略)
-// ... 請從上一版本複製完整的 Snake class ...
+// --- Snake Class ---
+// ... (與上一版本相同，請確保它是完整的) ...
 class Snake {
     constructor(x, y, color, borderColor, initialLength = 3, dx = 1, dy = 0, isPlayer = false) {
         this.body = [];
         this.color = color;
         this.borderColor = borderColor;
-        this.dx = dx; // Initial direction x
-        this.dy = dy; // Initial direction y
+        this.dx = dx;
+        this.dy = dy;
         this.isPlayer = isPlayer;
         this.length = initialLength;
         this.score = 0;
-        this.id = Math.random().toString(36).substring(2, 9); // Unique ID for the snake
+        this.id = Math.random().toString(36).substring(2, 9);
         this.isAlive = true;
         this.baseMoveIntervalTicks = BASE_MOVE_TICKS;
         this.currentMoveIntervalTicks = BASE_MOVE_TICKS;
         this.ticksUntilMove = BASE_MOVE_TICKS;
         for (let i = 0; i < initialLength; i++) {
-            let segX = x - i * dx; 
+            let segX = x - i * dx;
             let segY = y - i * dy;
             segX = Math.max(0, Math.min(segX, WORLD_WIDTH - 1));
             segY = Math.max(0, Math.min(segY, WORLD_HEIGHT - 1));
             this.body.push({ x: segX, y: segY });
         }
-        if (this.body.length === 0 && initialLength > 0) { 
+        if (this.body.length === 0 && initialLength > 0) {
              for (let i = 0; i < initialLength; i++) {
                 this.body.push({ x: Math.max(0, x - i), y: y });
             }
         }
-        this.length = this.body.length; 
+        this.length = this.body.length;
     }
     updateSpeed() {
         if (!this.isAlive) return;
         const head = this.getHead();
-        if (!head) return; 
+        if (!head) return;
         const zone = getZoneInfo(head.x, head.y);
         let multiplier = 1.0;
         if (zone && typeof zone.speedMultiplier !== 'undefined') {
@@ -133,8 +140,8 @@ class Snake {
                 eatenFood = foods[i];
                 this.length += eatenFood.lengthValue;
                 this.score += eatenFood.scoreValue;
-                foods.splice(i, 1); 
-                spawnFood(); 
+                foods.splice(i, 1);
+                spawnFood();
                 break;
             }
         }
@@ -144,7 +151,7 @@ class Snake {
         if (this.isPlayer && scoreDisplay) {
             scoreDisplay.textContent = `你的分數: ${this.score}`;
         }
-        return eatenFood; 
+        return eatenFood;
     }
     draw(viewX, viewY) {
         if (!this.isAlive) return;
@@ -162,37 +169,43 @@ class Snake {
     getHead() {
         return this.body.length > 0 ? this.body[0] : null;
     }
-    getBody() { 
+    getBody() {
         return this.body.slice(1);
     }
     die(killer = null) {
         if (!this.isAlive) return;
         this.isAlive = false;
         console.log(`Snake ${this.id} (Player: ${this.isPlayer}) died.`);
-        if (!this.isPlayer) { 
+
+        if (this.isPlayer) {
+            lastPlayedSeconds = Math.round((Date.now() - gameStartTime) / 1000); // <--- 計算遊玩秒數
+            console.log(`Player survived for ${lastPlayedSeconds} seconds.`);
+        }
+
+        if (!this.isPlayer) {
             let scoreToDrop = this.score;
-            const bodySegments = [...this.body]; 
+            const bodySegments = [...this.body];
             while (scoreToDrop > 0 && foods.length < MAX_FOOD_ITEMS) {
                 const foodType = chooseFoodTypeToDrop(scoreToDrop);
-                if (!foodType) break; 
+                if (!foodType) break;
                 let segment;
                 if (bodySegments.length > 0) {
                     segment = bodySegments.splice(Math.floor(Math.random() * bodySegments.length), 1)[0];
                 } else {
-                    segment = this.getHead() || { x: Math.floor(WORLD_WIDTH/2), y: Math.floor(WORLD_HEIGHT/2) }; 
+                    segment = this.getHead() || { x: Math.floor(WORLD_WIDTH/2), y: Math.floor(WORLD_HEIGHT/2) };
                 }
-                let foodX = segment.x + Math.floor(Math.random() * 3) - 1; 
+                let foodX = segment.x + Math.floor(Math.random() * 3) - 1;
                 let foodY = segment.y + Math.floor(Math.random() * 3) - 1;
                 foodX = Math.max(0, Math.min(foodX, WORLD_WIDTH - 1));
                 foodY = Math.max(0, Math.min(foodY, WORLD_HEIGHT - 1));
-                if (!isOccupiedBySnake(foodX, foodY, [this.id])) { 
+                if (!isOccupiedBySnake(foodX, foodY, [this.id])) {
                     foods.push({ x: foodX, y: foodY, ...foodType });
                 }
                 scoreToDrop -= foodType.scoreValue;
                 if (scoreToDrop < 0) scoreToDrop = 0;
             }
             console.log("Finished dropping food for AI snake " + this.id);
-        } else { 
+        } else {
             gameRunning = false;
             if (gameInterval) clearInterval(gameInterval);
             gameInterval = null;
@@ -200,10 +213,10 @@ class Snake {
             if (instructionsDiv) instructionsDiv.style.display = 'none';
             if (canvas) canvas.classList.add('game-hidden');
             if (gameOverMessage) gameOverMessage.style.display = 'none';
-            if (!db) { 
+            if (!db) {
                 console.warn("Realtime Database not available. Leaderboard features disabled.");
                 if (gameOverMessage) {
-                    gameOverMessage.innerHTML = `遊戲結束！ 你的分數: ${this.score}<br>排行榜無法使用<br>按空白鍵重新開始`;
+                    gameOverMessage.innerHTML = `遊戲結束！ 你的分數: ${this.score}<br>遊玩時間: ${lastPlayedSeconds} 秒<br>排行榜無法使用<br>按空白鍵重新開始`;
                     gameOverMessage.style.display = 'block';
                     if (canvas) canvas.classList.add('game-hidden');
                 }
@@ -213,7 +226,7 @@ class Snake {
                 leaderboardContainer.style.display = 'flex';
                 leaderboardTitle.textContent = "遊戲結束";
                 playerNameEntry.style.display = 'flex';
-                finalScoreMessage.textContent = `你的最終分數: ${this.score}`;
+                finalScoreMessage.textContent = `你的最終分數: ${this.score} (遊玩 ${lastPlayedSeconds} 秒)`; // <--- 顯示秒數
                 playerNameInput.value = '';
                 playerNameInput.focus();
                 submitScoreButton.disabled = false;
@@ -222,8 +235,8 @@ class Snake {
                 returnToStartButton.style.display = 'none';
             } else {
                 console.error("Leaderboard UI elements missing, cannot show name entry.");
-                 if (gameOverMessage) { 
-                    gameOverMessage.innerHTML = `遊戲結束！ 你的分數: ${this.score}<br>UI錯誤，無法提交分數<br>按空白鍵重新開始`;
+                 if (gameOverMessage) {
+                    gameOverMessage.innerHTML = `遊戲結束！ 你的分數: ${this.score}<br>遊玩時間: ${lastPlayedSeconds} 秒<br>UI錯誤，無法提交分數<br>按空白鍵重新開始`;
                     gameOverMessage.style.display = 'block';
                 }
             }
@@ -231,8 +244,7 @@ class Snake {
     }
 }
 
-
-// --- Leaderboard Functions (Modified for Realtime Database) ---
+// --- Leaderboard Functions (Modified for Realtime Database & new fields) ---
 async function handleScoreSubmission() {
     if (!playerSnake || !playerNameInput || !submitScoreButton) {
         console.error("handleScoreSubmission: Critical UI elements missing.");
@@ -240,7 +252,7 @@ async function handleScoreSubmission() {
         return;
     }
 
-    if (!db) { // Check if Realtime Database is initialized
+    if (!db) {
         console.error("handleScoreSubmission: Realtime Database not available. Cannot submit score.");
         alert("錯誤：無法連接到排行榜服務。");
         if (playerNameEntry) playerNameEntry.style.display = 'none';
@@ -250,6 +262,7 @@ async function handleScoreSubmission() {
 
     const playerName = playerNameInput.value.trim();
     const playerScore = playerSnake.score;
+    const playedSeconds = lastPlayedSeconds; // 從全域變數獲取
 
     if (!playerName) {
         alert("請輸入你的名字！");
@@ -263,18 +276,17 @@ async function handleScoreSubmission() {
     submitScoreButton.disabled = true;
     submitScoreButton.textContent = "提交中...";
 
-    const scoresRef = ref(db, 'scores'); // Path to scores in Realtime Database
+    const scoresRef = ref(db, 'scores');
     const newScore = {
         name: playerName,
         score: playerScore,
-        // Realtime Database can use a special server timestamp value
-        timestamp: rtdbServerTimestamp() // Imported from 'firebase/database'
-        // Or use client-side timestamp: timestamp: new Date().toISOString()
+        seconds: playedSeconds, // <--- 新增：儲存遊玩秒數
+        timestamp: rtdbServerTimestamp()
     };
 
     try {
-        await push(scoresRef, newScore); // push() generates a unique key
-        console.log("Score submitted successfully to Realtime Database.");
+        await push(scoresRef, newScore);
+        console.log("Score submitted successfully to Realtime Database:", newScore);
         if (playerNameEntry) playerNameEntry.style.display = 'none';
         await fetchAndDisplayLeaderboard();
     } catch (error) {
@@ -286,11 +298,14 @@ async function handleScoreSubmission() {
 }
 
 async function fetchAndDisplayLeaderboard() {
+    // ... (此函數與上一 Realtime Database 版本相同，但可以考慮是否顯示秒數) ...
+    // 如果要在排行榜上顯示秒數，可以在創建 listItem.innerHTML 時加入 data.seconds
+    // 例如：
+    // listItem.innerHTML = `<span class="rank">${rank}.</span><span class="name">${name}</span><span class="score">${score} (${entry.seconds || 0}s)</span>`;
     if (!leaderboardContainer || !leaderboardList || !leaderboardTitle || !returnToStartButton) {
          console.error("fetchAndDisplayLeaderboard: Leaderboard UI elements are missing.");
          return;
     }
-
     leaderboardContainer.style.display = 'flex';
     leaderboardTitle.textContent = "排行榜";
     leaderboardList.innerHTML = '<li><span class="name">載入中...</span></li>';
@@ -298,39 +313,31 @@ async function fetchAndDisplayLeaderboard() {
     returnToStartButton.style.display = 'block';
     if (playerNameEntry) playerNameEntry.style.display = 'none';
 
-    if (!db) { // Check if Realtime Database is initialized
+    if (!db) {
         console.error("fetchAndDisplayLeaderboard: Realtime Database not available.");
         leaderboardList.innerHTML = '<li><span class="name">排行榜功能目前無法使用。</span></li>';
         return;
     }
-
-    // For Realtime DB, to get top N scores, we query by score and limit
-    // Scores need to be structured to allow this. A common way is to store score as a priority
-    // or have a field for negative score to sort descending (since orderByChild sorts ascending).
-    // Let's assume we sort by 'score' and take the last N (highest scores).
-    // We'll need to store scores in a way that orderByChild("score") works effectively.
     const scoresRef = ref(db, 'scores');
-    const topScoresQuery = query(scoresRef, orderByChild('score'), limitToLast(5)); // Get last 5, which should be highest if ordered by score
+    const topScoresQuery = query(scoresRef, orderByChild('score'), limitToLast(5));
 
     try {
         const snapshot = await get(topScoresQuery);
         leaderboardList.innerHTML = '';
-
         if (snapshot.exists()) {
             const scores = [];
             snapshot.forEach(childSnapshot => {
                 scores.push({ key: childSnapshot.key, ...childSnapshot.val() });
             });
-            // Realtime DB returns in ascending order by default for orderByChild,
-            // limitToLast gets the "highest" ones. We need to reverse for display.
-            scores.reverse(); // Display highest first
-
+            scores.reverse();
             let rank = 1;
             scores.forEach(entry => {
                 const listItem = document.createElement('li');
                 const name = entry.name ? String(entry.name).substring(0, 20) : '匿名';
                 const score = typeof entry.score === 'number' ? entry.score : 0;
-                listItem.innerHTML = `<span class="rank">${rank}.</span><span class="name">${name}</span><span class="score">${score}</span>`;
+                const seconds = typeof entry.seconds === 'number' ? entry.seconds : 0; // 獲取秒數
+                // 修改此處以顯示秒數
+                listItem.innerHTML = `<span class="rank">${rank}.</span><span class="name">${name}</span><span class="score">${score} (${seconds}秒)</span>`;
                 leaderboardList.appendChild(listItem);
                 rank++;
             });
@@ -345,16 +352,46 @@ async function fetchAndDisplayLeaderboard() {
 }
 
 
-// --- (其餘的遊戲邏輯函數，如 initGame, gameTick, drawing, collisions, AI, etc. 與上一 Cloud Firestore 版本相同) ---
-// --- 請從上一版本複製完整的這些函數到這裡，確保它們都存在。 ---
+// --- startGame Function ---
+function startGame() {
+    console.log("startGame: Button clicked!");
+    if (gameRunning && gameInterval) {
+        console.warn("startGame called while game is already running. Clearing old interval.");
+        clearInterval(gameInterval);
+        gameInterval = null;
+    }
+    if (startButton) startButton.style.display = 'none';
+    if (gameOverMessage) gameOverMessage.style.display = 'none';
+    if (leaderboardContainer) leaderboardContainer.style.display = 'none';
+
+    gameStartTime = Date.now(); // <--- 初始化遊戲開始時間
+    lastPlayedSeconds = 0; // 重置上一局的秒數
+
+    console.log("startGame: Calling initGame...");
+    initGame();
+    if (playerSnake) {
+        console.log("startGame: Calling startGameLoop...");
+        startGameLoop();
+        console.log("startGame: Finished.");
+    } else {
+        console.error("startGame: Player snake not initialized, game cannot start.");
+        if(startButton) startButton.style.display = 'block';
+        if(gameOverMessage){
+            gameOverMessage.textContent = "遊戲啟動失敗，請重試。";
+            gameOverMessage.style.display = 'block';
+        }
+    }
+}
+
+
+// --- (其餘的遊戲邏輯函數，如 initGame, gameTick, drawing, collisions, AI, etc. 與上一 Realtime Database 版本相同) ---
+// --- 請從上一 Realtime Database 版本複製完整的這些函數到這裡，確保它們都存在。 ---
 // initGame, createAISnake, startGameLoop, gameTick, updateViewport, drawGameWorld, drawWorldRect, spawnFood,
 // checkAllCollisions, updateAISnakeLogic, isOccupiedBySnake, chooseFoodTypeToDrop, findAndMoveTowardsFood,
-// isColliding, getZoneInfo, handleReturnToStartScreen, handleKeyDown, startGame,
+// isColliding, getZoneInfo, handleReturnToStartScreen, handleKeyDown,
 // preloadZoneImages, imageLoadFinished, drawInitialScreen.
 
-// ... (確保從上一版本複製所有這些函數) ...
-
-// --- (補全所有遊戲邏輯函數，與上一 Cloud Firestore 版本相同) ---
+// (補全所有遊戲邏輯函數，與上一版本相同)
 function initGame() {
     console.log("initGame: Started.");
     try {
@@ -893,31 +930,6 @@ function handleKeyDown(event) {
         changingDirection = true;
     }
 }
-function startGame() {
-    console.log("startGame: Button clicked!");
-    if (gameRunning && gameInterval) {
-        console.warn("startGame called while game is already running. Clearing old interval.");
-        clearInterval(gameInterval);
-        gameInterval = null;
-    }
-    if (startButton) startButton.style.display = 'none';
-    if (gameOverMessage) gameOverMessage.style.display = 'none';
-    if (leaderboardContainer) leaderboardContainer.style.display = 'none';
-    console.log("startGame: Calling initGame...");
-    initGame();
-    if (playerSnake) {
-        console.log("startGame: Calling startGameLoop...");
-        startGameLoop();
-        console.log("startGame: Finished.");
-    } else {
-        console.error("startGame: Player snake not initialized, game cannot start.");
-        if(startButton) startButton.style.display = 'block';
-        if(gameOverMessage){
-            gameOverMessage.textContent = "遊戲啟動失敗，請重試。";
-            gameOverMessage.style.display = 'block';
-        }
-    }
-}
 let imagesToLoad = 0;
 let imagesLoaded = 0;
 function preloadZoneImages(callback) {
@@ -982,10 +994,8 @@ function drawInitialScreen() {
     }
 }
 
-// --- DOMContentLoaded: Setup and Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM fully loaded and parsed");
-
     canvas = document.getElementById('gameCanvas');
     scoreDisplay = document.getElementById('scoreDisplay');
     gameOverMessage = document.getElementById('gameOverMessage');
@@ -1025,7 +1035,7 @@ document.addEventListener('DOMContentLoaded', () => {
     CANVAS_WIDTH = canvas.width;
     CANVAS_HEIGHT = canvas.height;
 
-    if (!db) { // db is initialized at the top of script.js now
+    if (!db) {
         console.warn("Firebase Realtime Database was not initialized correctly. Leaderboard features will be disabled.");
         if (submitScoreButton) submitScoreButton.disabled = true;
     } else {
