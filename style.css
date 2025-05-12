@@ -1,0 +1,153 @@
+/* style.css */
+/* ... (existing styles) ... */
+
+#leaderboardContainer {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(250, 250, 250, 0.97); /* Light background, slightly transparent */
+    color: #333;
+    padding: 25px 30px; /* Increased padding */
+    border-radius: 12px; /* Softer corners */
+    text-align: center;
+    font-size: 1.1em;
+    line-height: 1.6;
+    z-index: 30; /* Ensure it's above other elements */
+    display: flex; /* Will be controlled by JS (none/flex) */
+    flex-direction: column;
+    align-items: center;
+    width: 380px; /* Adjusted width */
+    max-width: 90%; /* Ensure it fits smaller screens */
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15); /* Softer shadow */
+    border: 1px solid #e0e0e0; /* Light border */
+}
+
+#leaderboardTitle {
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 2.2em; /* Larger title */
+    color: #2c3e50; /* Darker blue-grey */
+    font-weight: 600; /* Slightly bolder */
+}
+
+#playerNameEntry {
+    margin-bottom: 20px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#finalScoreMessage {
+    margin-bottom: 15px; /* Increased margin */
+    font-size: 1.3em; /* Larger score display */
+    color: #34495e; /* Another shade of blue-grey */
+    font-weight: 500;
+}
+
+#playerNameInput {
+    padding: 12px 15px; /* More padding */
+    width: 100%; /* Full width, box-sizing handles padding */
+    margin-bottom: 18px; /* Increased margin */
+    border-radius: 6px; /* Softer corners */
+    border: 1px solid #bdc3c7; /* Grey border */
+    font-size: 1em;
+    box-sizing: border-box; /* Important for width 100% with padding */
+    text-align: center;
+}
+#playerNameInput:focus {
+    border-color: #3498db; /* Blue focus */
+    box-shadow: 0 0 5px rgba(52, 152, 219, 0.5);
+    outline: none;
+}
+
+
+#submitScoreButton, #returnToStartButton {
+    padding: 12px 20px;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1.1em;
+    width: 100%; /* Full width */
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+}
+#submitScoreButton:hover, #returnToStartButton:hover {
+    transform: translateY(-1px); /* Slight lift on hover */
+}
+#submitScoreButton:active, #returnToStartButton:active {
+    transform: translateY(0px); /* Press down effect */
+}
+
+#submitScoreButton {
+    background-color: #2ecc71; /* Emerald green */
+}
+#submitScoreButton:hover {
+    background-color: #27ae60; /* Darker emerald */
+}
+#submitScoreButton:disabled {
+    background-color: #95a5a6; /* Grey when disabled */
+    cursor: not-allowed;
+}
+
+
+#returnToStartButton {
+    background-color: #3498db; /* Peter River blue */
+    margin-top: 10px; /* Add some space if both buttons were visible */
+}
+#returnToStartButton:hover {
+    background-color: #2980b9; /* Darker blue */
+}
+
+
+#leaderboardList {
+    list-style-type: none;
+    padding: 0;
+    margin-bottom: 25px;
+    width: 100%;
+    text-align: left;
+    font-size: 1.05em; /* Adjusted for clarity */
+}
+
+#leaderboardList li {
+    padding: 10px 8px; /* More padding */
+    border-bottom: 1px solid #ecf0f1; /* Lighter separator */
+    display: flex;
+    justify-content: space-between;
+    align-items: center; /* Vertically align items */
+    transition: background-color 0.2s ease;
+}
+#leaderboardList li:last-child {
+    border-bottom: none;
+}
+#leaderboardList li:hover {
+    background-color: #f9f9f9; /* Slight hover effect */
+}
+
+#leaderboardList .rank {
+    flex-basis: 30px; /* Fixed width for rank */
+    text-align: right;
+    margin-right: 12px; /* Increased margin */
+    color: #7f8c8d; /* Grey */
+    font-weight: 500;
+}
+#leaderboardList .name {
+    flex-grow: 1;
+    color: #34495e; /* Dark blue-grey */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#leaderboardList .score {
+    flex-basis: 50px; /* Fixed width for score */
+    text-align: right;
+    font-weight: 600; /* Bolder score */
+    color: #e74c3c; /* Alizarin red for score */
+}
+
+.game-hidden {
+    display: none !important; /* To hide the canvas */
+}
